@@ -1,5 +1,7 @@
 # Contributing
 
+[简体中文](CONTRIBUTING.zh-CN.md)
+
 PocketInfer adapters are executable architecture contracts. A new adapter must:
 
 1. Match a precise `model_type` or architecture signature and fail closed.

@@ -1,5 +1,7 @@
 # PocketInfer
 
+[简体中文](README.zh-CN.md)
+
 PocketInfer turns a very large model configuration into a memory-bounded,
 architecture-faithful configuration for inference-engine development.
 
@@ -94,11 +96,13 @@ bottleneck work requires a future trace-replay layer in addition to config scali
 ## Development
 
 ```bash
-uv run pytest
-uv run ruff check .
+./scripts/ci.sh
 ```
 
-See [the design](docs/design.md) and
-[ADR 0001](docs/adr/0001-adapters-and-constraints.md). The
-[support matrix](docs/model-support.md) defines what can be generalized and what
-requires a model-family adapter.
+This is CPU-only validation: lint, formatting, unit and golden tests, package
+build, and CLI smoke tests on Python 3.11 and 3.12. It does not prove model
+construction or kernel execution on a GPU. See [CI and validation](docs/ci.md).
+
+See [the design](docs/design.md), [model support](docs/model-support.md),
+[contributing](CONTRIBUTING.md), [release handoff](docs/release.md), and
+[ADR 0001](docs/adr/0001-adapters-and-constraints.md).

@@ -1,5 +1,7 @@
 # Security
 
+[简体中文](SECURITY.zh-CN.md)
+
 PocketInfer reads local JSON and writes generated JSON. It does not execute
 model repository code, download checkpoints, or evaluate configuration values.
 

@@ -1,5 +1,7 @@
 # PocketInfer MVP design
 
+[简体中文](design.zh-CN.md)
+
 ## Decision
 
 PocketInfer is a deterministic config compiler for inference development. It
@@ -48,4 +50,3 @@ distributed communication. Generated configs must be validated by constructing
 the model with the target inference engine and then by an accelerator smoke test.
 The manifest states these limitations rather than presenting estimates as
 measured deployment results.
-

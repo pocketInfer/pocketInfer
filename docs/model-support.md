@@ -1,5 +1,7 @@
 # Model support boundary
 
+[简体中文](model-support.zh-CN.md)
+
 Config scaling is reusable, but model semantics are not fully generic. The core
 solver can be shared across model families; each unusual architecture needs a
 small adapter that declares legal dimensions, derived fields, invariants, and an
