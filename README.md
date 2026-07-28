@@ -2,9 +2,24 @@
 
 [简体中文](README.zh-CN.md)
 
-Compile a trillion-scale Hugging Face config into a small, memory-bounded
-fixture for inference-engine development. It preserves selected architecture
-and code paths—not model quality.
+> Changing one kernel should not require booking a GPU cluster.
+
+New models are too large for an ordinary development loop. Even with
+`--load-format dummy`, vLLM still builds the shapes described by the original
+config. A small kernel change can turn into hours of waiting for scarce GPUs.
+
+Hand-editing the config is worse than it looks. Shrink the wrong head, expert,
+or layer dimension and the model may silently leave the fused kernel, skip the
+cache path, or stop exercising the feature you meant to test. The server starts;
+the test is still meaningless.
+
+What developers need is not a generic tiny LLM. They need a **small test model
+that still behaves like the architecture under development**.
+
+PocketInfer takes the official config and a memory budget, then generates the
+most useful scaled-down version that fits—keeping KDA/DSA, MoE routing, cache
+topology, and important kernel shapes where the selected profile allows. Every
+compromise is written to a manifest instead of being hidden.
 
 **Status:** alpha. Kimi K3 and GLM-5.2 are supported; GPU runtime is not yet
 validated.

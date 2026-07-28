@@ -2,8 +2,21 @@
 
 [English](README.md)
 
-把万亿参数模型的 Hugging Face 配置编译成受显存预算约束的小型 fixture，用于
-推理引擎开发。它保留选定的架构和代码路径，不保留模型能力。
+> 改一个 kernel，不该先申请一组 GPU。
+
+新模型已经大到装不进日常开发环境。即使用 `--load-format dummy`，vLLM
+仍会按原始 config 构造完整 shape。一次普通的 kernel 修改，可能先花几个
+小时排队等卡。
+
+手改 config 看似简单，风险却更大：少改一个 head、expert 或 layer，就可能
+悄悄掉出 fused kernel、绕过 cache path，甚至让你真正想测的功能直接消失。
+服务启动了，测试却没有意义。
+
+开发者需要的不是一个普通“小模型”，而是一个**缩小后仍像原架构的测试模型**。
+
+PocketInfer 接收官方 config 和显存预算，在预算内寻找最有调试价值的缩小配置：
+能保留的 KDA/DSA、MoE routing、cache 拓扑和关键 kernel shape 尽量保留；
+不得不失真的地方，全部写进 manifest，不悄悄掩盖。
 
 **状态：** alpha。已支持 Kimi K3 和 GLM-5.2；尚未完成 GPU runtime 验证。
 
