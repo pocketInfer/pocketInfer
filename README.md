@@ -2,16 +2,17 @@
 
 [简体中文](README.zh-CN.md)
 
-> Changing one kernel should not require booking a GPU cluster.
+> Debugging a giant model should not begin with waiting for a GPU cluster.
 
-New models are too large for an ordinary development loop. Even with
-`--load-format dummy`, vLLM still builds the shapes described by the original
-config. A small kernel change can turn into hours of waiting for scarce GPUs.
+Model integration, prefix caching, scheduling, MoE routing, quantization, and
+kernel work are all ordinary engine development. With a trillion-scale config,
+they become memory and cluster problems before the real work even begins. Even
+`--load-format dummy` still builds the shapes described by that config.
 
-Hand-editing the config is worse than it looks. Shrink the wrong head, expert,
-or layer dimension and the model may silently leave the fused kernel, skip the
-cache path, or stop exercising the feature you meant to test. The server starts;
-the test is still meaningless.
+Hand-editing the config can create false confidence. Change the wrong head
+count, expert count, or layer schedule and the model may silently take a
+fallback, bypass a cache path, or lose the topology under test. A server that
+starts is not proof that you tested what you intended.
 
 What developers need is not a generic tiny LLM. They need a **small test model
 that still behaves like the architecture under development**.

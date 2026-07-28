@@ -2,15 +2,15 @@
 
 [English](README.md)
 
-> 改一个 kernel，不该先申请一组 GPU。
+> 调试超大模型，不该从排队等卡开始。
 
-新模型已经大到装不进日常开发环境。即使用 `--load-format dummy`，vLLM
-仍会按原始 config 构造完整 shape。一次普通的 kernel 修改，可能先花几个
-小时排队等卡。
+模型接入、prefix cache、scheduler、MoE routing、量化和 kernel，本来都是
+普通的推理引擎开发；碰上万亿参数 config，却会先变成显存和集群问题。
+即使用 `--load-format dummy`，vLLM 仍会按原始 config 构造 shape。
 
-手改 config 看似简单，风险却更大：少改一个 head、expert 或 layer，就可能
-悄悄掉出 fused kernel、绕过 cache path，甚至让你真正想测的功能直接消失。
-服务启动了，测试却没有意义。
+手改 config 又容易制造“假测试”：改错 head 数、expert 数或 layer schedule，
+模型可能悄悄走 fallback、绕过 cache path，或者丢掉要验证的拓扑。服务能
+启动，不代表你真的测到了目标功能。
 
 开发者需要的不是一个普通“小模型”，而是一个**缩小后仍像原架构的测试模型**。
 
