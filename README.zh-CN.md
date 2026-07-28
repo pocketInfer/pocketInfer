@@ -2,15 +2,14 @@
 
 [English](README.md)
 
-> 调试超大模型，不该从排队等卡开始。
+> 调试超大模型，不该从排队等B300开始。 是时候,把2.8T的模型放到一张小卡里跑起来了~
 
 模型接入、prefix cache、scheduler、MoE routing、量化和 kernel，本来都是
 普通的推理引擎开发；碰上万亿参数 config，却会先变成显存和集群问题。
-即使用 `--load-format dummy`，vLLM 仍会按原始 config 构造 shape。
+每个Kimi-K3/GLM5.2的vLLM开发同学,都需要等一整台B300或者2台H200么?
 
-手改 config 又容易制造“假测试”：改错 head 数、expert 数或 layer schedule，
-模型可能悄悄走 fallback、绕过 cache path，或者丢掉要验证的拓扑。服务能
-启动，不代表你真的测到了目标功能。
+即使用 `--load-format dummy`，vLLM 仍会按原始 config 构造 shape。
+手改 config 又容易制造“假测试”：改错 head 数、expert 数或 layer schedule，模型可能悄悄走 fallback、绕过 cache path，或者丢掉要验证的拓扑。服务能启动，不代表你真的测到了目标功能。
 
 开发者需要的不是一个普通“小模型”，而是一个**缩小后仍像原架构的测试模型**。
 
