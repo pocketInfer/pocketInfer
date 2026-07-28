@@ -2,73 +2,45 @@
 
 [简体中文](README.zh-CN.md)
 
-PocketInfer turns a very large model configuration into a memory-bounded,
-architecture-faithful configuration for inference-engine development.
+Compile a trillion-scale Hugging Face config into a small, memory-bounded
+fixture for inference-engine development. It preserves selected architecture
+and code paths—not model quality.
 
-It is not model distillation and does not preserve output quality. Its purpose is
-to exercise the same model implementation, cache machinery, routing logic, and
-kernel families without loading the original trillion-parameter checkpoint.
+**Status:** alpha. Kimi K3 and GLM-5.2 are supported; GPU runtime is not yet
+validated.
 
-## Why
-
-Naively reducing every integer in `config.json` changes kernel shapes and can
-silently remove the architecture feature being tested. PocketInfer uses explicit
-model adapters to preserve invariants and fails closed for unsupported models.
-
-The MVP supports:
-
-- Kimi K3: KDA/MLA ratio, AttnRes, LatentMoE, SiTU, top-k, and MXFP4 layout.
-- GLM-5.2: DSA dimensions, IndexShare phase, dense-to-MoE transition, and MTP.
-
-## Install
+## Quick start
 
 ```bash
-uv venv --python 3.12
-uv pip install -e ".[dev]"
-```
+uv sync --extra dev
 
-## Generate a config
-
-Download the official `config.json`, then declare resources rather than a GPU SKU:
-
-```bash
 pocketinfer scale ./Kimi-K3/config.json \
   --output-dir ./out/kimi-k3 \
   --memory-budget 32GiB \
   --kv-cache-budget 6GiB \
   --runtime-reserve 6GiB \
   --max-model-len 4096 \
-  --profile balanced \
-  --reference-tp 8 \
-  --reference-ep 16
+  --profile balanced
 ```
 
-Outputs:
+The command writes:
 
-- `config.json`: generated model config.
-- `pocketinfer-manifest.json`: budget, estimates, changed fields, preserved
-  invariants, and known fidelity losses.
+- `config.json`: generated Hugging Face config.
+- `pocketinfer-manifest.json`: dimensions, memory estimate, changed fields,
+  preserved invariants, and warnings.
 
-The solver enforces both the weight envelope and a minimum cache estimate for
-one `--max-model-len` request. Remaining KV capacity determines concurrency.
+Representative 32 GiB result, with 6 GiB each reserved for KV cache and runtime:
 
-`balanced` prioritizes meaningful topology boundaries before local expert count.
-`kernel` prioritizes rank-local attention-head and expert-count shapes from the
-declared reference parallel plan.
+| Model | Layers / heads / experts | Parameters | Estimated weights |
+| --- | --- | --- | --- |
+| Kimi K3 | 13 / 12 / 32 | 19.1B | 18.20 GiB |
+| GLM-5.2 | 11 / 8 / 16 | 8.8B | 16.45 GiB |
 
-For a 32 GiB envelope with 6 GiB each reserved for KV cache and runtime, the
-representative official shapes select:
+These are static estimates, not measured GPU peaks.
 
-| Adapter | Profile | Layers / heads / experts | Parameters | Weight estimate |
-| --- | --- | --- | --- | --- |
-| Kimi K3 | balanced | 13 / 12 / 32 | 19.1B | 18.20 GiB |
-| GLM-5.2 | balanced | 11 / 8 / 16 | 8.8B | 16.45 GiB |
+## Run with vLLM
 
-These are compiler estimates, not measured peak memory.
-
-## Using with vLLM
-
-Copy tokenizer and model-side config files into the generated directory, then:
+Copy the original tokenizer files into the output directory, then:
 
 ```bash
 vllm serve ./out/kimi-k3 \
@@ -77,21 +49,12 @@ vllm serve ./out/kimi-k3 \
   --enable-prefix-caching \
   --mamba-cache-mode align \
   --kv-cache-memory-bytes 6G \
-  --moe-backend auto \
   --enforce-eager
 ```
 
-Remove `--enforce-eager` for CUDA graph and performance profiling.
-
-## What the estimate does not prove
-
-The estimate is not a hardware benchmark. It excludes allocator peaks, backend
-repacking, CUDA graph pools, temporary activations, and communication. A generated
-config must pass model-construction tests and a real accelerator smoke test before
-being called runnable.
-
-Single-device execution cannot reproduce TP/EP collectives. Accurate distributed
-bottleneck work requires a future trace-replay layer in addition to config scaling.
+The generated config takes the native K3/GLM model path. Actual backend and
+kernel selection still depends on the vLLM version, device, dtype, and runtime
+flags.
 
 ## Development
 
@@ -99,10 +62,9 @@ bottleneck work requires a future trace-replay layer in addition to config scali
 ./scripts/ci.sh
 ```
 
-This is CPU-only validation: lint, formatting, unit and golden tests, package
-build, and CLI smoke tests on Python 3.11 and 3.12. It does not prove model
-construction or kernel execution on a GPU. See [CI and validation](docs/ci.md).
+CPU CI covers Python 3.11/3.12, lint, tests, package build, and CLI smoke. It
+does not cover vLLM model construction or GPU execution.
 
-See [the design](docs/design.md), [model support](docs/model-support.md),
-[contributing](CONTRIBUTING.md), [release handoff](docs/release.md), and
-[ADR 0001](docs/adr/0001-adapters-and-constraints.md).
+[Design](docs/design.md) · [Model support](docs/model-support.md) ·
+[CI scope](docs/ci.md) · [Contributing](CONTRIBUTING.md) ·
+[Release checklist](docs/release.md)
