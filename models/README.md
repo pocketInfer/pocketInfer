@@ -1,7 +1,8 @@
 # Bundled dummy model configs
 
-The repository tracks scaled configs, source configs, fidelity reports, and
-manifests—not weights or tokenizer files.
+The repository tracks two generated examples with their source configs,
+fidelity reports, and manifests—not weights or tokenizer files. Their budgets
+and profiles are examples, not hardware requirements.
 
 From a clean clone, start either engine without tokenization:
 
@@ -15,9 +16,10 @@ vllm serve ./models/Kimi-K3-dummy \
   --max-model-len 4096 --enforce-eager
 ```
 
-GLM-5.2 is GPU-startup validated on one 32 GB GPU. Kimi K3 is generated for
-the same budget but still needs GPU validation. Remove `--enforce-eager` when
-profiling CUDA Graph behavior.
+The GLM kernel-profile example is GPU-startup validated on one 32 GB GPU. The
+Kimi balanced-profile example uses the same 28 GiB config budget but still
+needs GPU validation. Remove `--enforce-eager` when profiling CUDA Graph
+behavior.
 
 To enable text input, download the upstream tokenizer metadata into the model
 directory and omit `--skip-tokenizer-init`:

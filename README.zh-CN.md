@@ -20,14 +20,14 @@ PocketInfer 接收官方 config 和显存预算，在预算内寻找最有调试
 **状态：** alpha。已支持 Kimi K3 和 GLM-5.2。GLM-5.2 已在单张 32 GB GPU、
 vLLM 0.26.0 上完成 dummy-load 启动验证；尚未验证真实权重和输出正确性。
 
-## 内置 32 GB 配置
+## 内置范例
 
-仓库已经直接带了两份缩小配置：
+仓库直接带了两份生成范例，它们不是固定硬件档位或显存下限：
 
-| 路径 | 层数 / heads / experts | 格式 | 权重估算 | 状态 |
-| --- | --- | --- | --- | --- |
-| `models/GLM-5.2-dummy` | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU 启动已验证 |
-| `models/Kimi-K3-dummy` | 13 / 12 / 32 | MXFP4 | 18.20 GiB | 待 GPU 验证 |
+| 路径 | Profile | 层数 / heads / experts | 格式 | 权重估算 | 状态 |
+| --- | --- | --- | --- | --- | --- |
+| `models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU 启动已验证 |
+| `models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | 待 GPU 验证 |
 
 不下载权重和 tokenizer，也可以直接启动 engine：
 
@@ -64,8 +64,8 @@ pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
 - `fidelity-report.md`：简短的人类可读缩放报告。
 - `pocketinfer-manifest.json`：机器可读的审计数据。
 
-内置模型按单卡 32 GB 目标采用保守的 28 GiB 内部预算。权重和 cache 数字是
-静态估算，不是 GPU 峰值实测。
+这两份范例采用 28 GiB 总预算，其中 KV cache 4 GiB、runtime 5 GiB。
+可以按目标设备调整预算和 profile；权重与 cache 数字是静态估算，不是 GPU 峰值实测。
 
 ## GLM-5.2 单卡实测
 

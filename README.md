@@ -26,14 +26,15 @@ compromise is written to a manifest instead of being hidden.
 startup is validated on a single 32 GB GPU with vLLM 0.26.0; real weights
 and output correctness are not validated.
 
-## Bundled 32 GB configs
+## Bundled examples
 
-A fresh clone already contains both scaled configs:
+A fresh clone contains two generated examples. They are not fixed hardware
+tiers or memory limits:
 
-| Path | Layers / heads / experts | Format | Estimated weights | Status |
-| --- | --- | --- | --- | --- |
-| `models/GLM-5.2-dummy` | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU startup validated |
-| `models/Kimi-K3-dummy` | 13 / 12 / 32 | MXFP4 | 18.20 GiB | GPU validation pending |
+| Path | Profile | Layers / heads / experts | Format | Estimated weights | Status |
+| --- | --- | --- | --- | --- | --- |
+| `models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU startup validated |
+| `models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | GPU validation pending |
 
 Start either engine directly without weights or tokenizer files:
 
@@ -71,8 +72,9 @@ The command writes:
 - `fidelity-report.md`: short human-readable scaling report.
 - `pocketinfer-manifest.json`: machine-readable audit data.
 
-The bundled models use a conservative 28 GiB internal budget on a 32 GB GPU.
-Weight and cache figures are static estimates, not measured peaks.
+The checked-in examples use a 28 GiB total budget, with 4 GiB for KV cache and
+5 GiB for runtime. Change the budget and profile for your target. Weight and
+cache figures are static estimates, not measured peaks.
 
 ## Measured GLM-5.2 run
 
