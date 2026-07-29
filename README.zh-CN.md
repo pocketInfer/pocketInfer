@@ -20,12 +20,36 @@ PocketInfer 接收官方 config 和显存预算，在预算内寻找最有调试
 **状态：** alpha。已支持 Kimi K3 和 GLM-5.2。GLM-5.2 已在单张 32 GB GPU、
 vLLM 0.26.0 上完成 dummy-load 启动验证；尚未验证真实权重和输出正确性。
 
-## 快速开始
+## 内置 32 GB 配置
+
+仓库已经直接带了两份缩小配置：
+
+| 路径 | 层数 / heads / experts | 格式 | 权重估算 | 状态 |
+| --- | --- | --- | --- | --- |
+| `models/GLM-5.2-dummy` | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU 启动已验证 |
+| `models/Kimi-K3-dummy` | 13 / 12 / 32 | MXFP4 | 18.20 GiB | 待 GPU 验证 |
+
+不下载权重和 tokenizer，也可以直接启动 engine：
+
+```bash
+vllm serve ./models/GLM-5.2-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+
+vllm serve ./models/Kimi-K3-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+```
+
+`--skip-tokenizer-init` 适合 engine 测试。要通过 OpenAI API 发送文本，按
+[`models/README.md`](models/README.md) 下载上游 tokenizer 元数据，再去掉该参数。
+
+## 自己生成
 
 ```bash
 uv sync --extra dev
 
-pocketinfer scale ./Kimi-K3/config.json \
+pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
   --output-dir ./out/kimi-k3 \
   --memory-budget 32GiB \
   --kv-cache-budget 6GiB \
@@ -40,33 +64,10 @@ pocketinfer scale ./Kimi-K3/config.json \
 - `fidelity-report.md`：简短的人类可读缩放报告。
 - `pocketinfer-manifest.json`：机器可读的审计数据。
 
-32 GiB 示例，KV cache 和 runtime 各预留 6 GiB：
+内置模型按单卡 32 GB 目标采用保守的 28 GiB 内部预算。权重和 cache 数字是
+静态估算，不是 GPU 峰值实测。
 
-| 模型 | 层数 / heads / experts | 参数量 | 权重估算 |
-| --- | --- | --- | --- |
-| Kimi K3 | 13 / 12 / 32 | 19.1B | 18.20 GiB |
-| GLM-5.2 | 11 / 8 / 16 | 8.8B | 16.45 GiB |
-
-这是静态估算，不是 GPU 峰值显存实测。
-
-## 配合 vLLM
-
-把原模型 tokenizer 文件复制到输出目录，然后执行：
-
-```bash
-vllm serve ./out/kimi-k3 \
-  --load-format dummy \
-  --max-model-len 4096 \
-  --enable-prefix-caching \
-  --mamba-cache-mode align \
-  --kv-cache-memory-bytes 6G \
-  --enforce-eager
-```
-
-生成配置仍走原生 K3/GLM model path。实际 backend 和 kernel 取决于 vLLM
-版本、设备、dtype 和运行参数。
-
-GLM-5.2 单张 32 GB GPU 实测：
+## GLM-5.2 单卡实测
 
 ```bash
 vllm serve models/GLM-5.2-dummy/ \

@@ -1,55 +1,52 @@
-# Dummy model metadata
+# Bundled dummy model configs
 
-Run from the repository root. These commands intentionally omit model weights.
+The repository tracks scaled configs, source configs, fidelity reports, and
+manifests—not weights or tokenizer files.
 
-## GLM-5.2 on a single 32 GB GPU
+From a clean clone, start either engine without tokenization:
+
+```bash
+vllm serve ./models/GLM-5.2-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+
+vllm serve ./models/Kimi-K3-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+```
+
+GLM-5.2 is GPU-startup validated on one 32 GB GPU. Kimi K3 is generated for
+the same budget but still needs GPU validation. Remove `--enforce-eager` when
+profiling CUDA Graph behavior.
+
+To enable text input, download the upstream tokenizer metadata into the model
+directory and omit `--skip-tokenizer-init`:
 
 ```bash
 uvx hf download zai-org/GLM-5.2 \
-  config.json \
-  tokenizer.json \
-  tokenizer_config.json \
-  chat_template.jinja \
+  tokenizer.json tokenizer_config.json chat_template.jinja \
   --local-dir ./models/GLM-5.2-dummy
 
-mv ./models/GLM-5.2-dummy/config.json \
-  ./models/GLM-5.2-dummy/config.json.ori
-
-uv run pocketinfer scale \
-  ./models/GLM-5.2-dummy/config.json.ori \
-  --output-dir ./models/GLM-5.2-dummy \
-  --memory-budget 28GiB \
-  --kv-cache-budget 4GiB \
-  --runtime-reserve 5GiB \
-  --max-model-len 4096 \
-  --profile kernel \
-  --force
-
-vllm serve ./models/GLM-5.2-dummy \
-  --load-format dummy \
-  --trust-remote-code \
-  --max-model-len 4096 \
-  --enforce-eager
-```
-
-This produces an 11-layer, 16-expert BF16 test model with an estimated
-16.45 GiB of weights. vLLM 0.26.0 loaded it in 15.36 GiB, reserved 12.29 GiB
-for KV cache, and started on one 32 GB GPU. Remove `--enforce-eager` when
-profiling CUDA Graph behavior.
-Read `fidelity-report.md` for the human-facing scaling summary; the JSON
-manifest is the machine-readable record.
-
-## Kimi K3 metadata
-
-```bash
 uvx hf download moonshotai/Kimi-K3 \
-  config.json \
-  tokenizer_config.json \
-  tiktoken.model \
-  tokenization_kimi.py \
-  encoding_k3.py \
-  preprocessor_config.json \
-  kimi_k3_vision_processing.py \
-  media_utils.py \
+  tokenizer_config.json tiktoken.model tokenization_kimi.py encoding_k3.py \
+  preprocessor_config.json kimi_k3_vision_processing.py media_utils.py \
   --local-dir ./models/Kimi-K3-dummy
 ```
+
+Regenerate either bundled config with:
+
+```bash
+uv run pocketinfer scale ./models/GLM-5.2-dummy/config.json.ori \
+  --output-dir ./models/GLM-5.2-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
+  --max-model-len 4096 --profile kernel --force
+
+uv run pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
+  --output-dir ./models/Kimi-K3-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
+  --max-model-len 4096 --profile balanced --force
+```
+
+The bundled GLM shape is 11 layers / 8 heads / 16 experts (16.45 GiB
+estimated). Kimi is 13 / 12 / 32 in native MXFP4 (18.20 GiB estimated) and
+crosses its 12-layer AttnRes boundary.

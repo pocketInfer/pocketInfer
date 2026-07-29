@@ -26,12 +26,37 @@ compromise is written to a manifest instead of being hidden.
 startup is validated on a single 32 GB GPU with vLLM 0.26.0; real weights
 and output correctness are not validated.
 
-## Quick start
+## Bundled 32 GB configs
+
+A fresh clone already contains both scaled configs:
+
+| Path | Layers / heads / experts | Format | Estimated weights | Status |
+| --- | --- | --- | --- | --- |
+| `models/GLM-5.2-dummy` | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU startup validated |
+| `models/Kimi-K3-dummy` | 13 / 12 / 32 | MXFP4 | 18.20 GiB | GPU validation pending |
+
+Start either engine directly without weights or tokenizer files:
+
+```bash
+vllm serve ./models/GLM-5.2-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+
+vllm serve ./models/Kimi-K3-dummy \
+  --load-format dummy --skip-tokenizer-init \
+  --max-model-len 4096 --enforce-eager
+```
+
+`--skip-tokenizer-init` is for engine testing. To send text through the OpenAI
+API, download the upstream tokenizer metadata as shown in
+[`models/README.md`](models/README.md), then omit that flag.
+
+## Generate your own
 
 ```bash
 uv sync --extra dev
 
-pocketinfer scale ./Kimi-K3/config.json \
+pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
   --output-dir ./out/kimi-k3 \
   --memory-budget 32GiB \
   --kv-cache-budget 6GiB \
@@ -46,34 +71,10 @@ The command writes:
 - `fidelity-report.md`: short human-readable scaling report.
 - `pocketinfer-manifest.json`: machine-readable audit data.
 
-Representative 32 GiB result, with 6 GiB each reserved for KV cache and runtime:
+The bundled models use a conservative 28 GiB internal budget on a 32 GB GPU.
+Weight and cache figures are static estimates, not measured peaks.
 
-| Model | Layers / heads / experts | Parameters | Estimated weights |
-| --- | --- | --- | --- |
-| Kimi K3 | 13 / 12 / 32 | 19.1B | 18.20 GiB |
-| GLM-5.2 | 11 / 8 / 16 | 8.8B | 16.45 GiB |
-
-These are static estimates, not measured GPU peaks.
-
-## Run with vLLM
-
-Copy the original tokenizer files into the output directory, then:
-
-```bash
-vllm serve ./out/kimi-k3 \
-  --load-format dummy \
-  --max-model-len 4096 \
-  --enable-prefix-caching \
-  --mamba-cache-mode align \
-  --kv-cache-memory-bytes 6G \
-  --enforce-eager
-```
-
-The generated config takes the native K3/GLM model path. Actual backend and
-kernel selection still depends on the vLLM version, device, dtype, and runtime
-flags.
-
-GLM-5.2 also starts on a single 32 GB GPU:
+## Measured GLM-5.2 run
 
 ```bash
 vllm serve models/GLM-5.2-dummy/ \

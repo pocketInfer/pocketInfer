@@ -1,0 +1,147 @@
+{
+  "schema_version": 2,
+  "adapter": "kimi-k3",
+  "profile": "balanced",
+  "budget": {
+    "total_memory_bytes": 30064771072,
+    "kv_cache_bytes": 4294967296,
+    "runtime_reserve_bytes": 5368709120,
+    "weight_budget_bytes": 20401094656,
+    "world_size": 1,
+    "max_model_len": 4096
+  },
+  "reference_parallelism": {
+    "tensor_parallel": 8,
+    "expert_parallel": 16
+  },
+  "selected_dimensions": {
+    "layers": 13,
+    "attention_heads": 12,
+    "experts": 32,
+    "top_k": 16
+  },
+  "estimate": {
+    "parameter_count": 19086651776,
+    "weight_bytes": 19544302336,
+    "weight_gib": 18.202,
+    "kv_bytes_per_token": 4608,
+    "fixed_cache_bytes": 7326720,
+    "minimum_cache_bytes": 26201088,
+    "minimum_cache_gib": 0.024,
+    "notes": [
+      "top-16 routed experts retained",
+      "minimum cache estimate covers one max-length request",
+      "runtime repacking and CUDA workspaces are excluded"
+    ]
+  },
+  "preserved": [
+    "hidden_size",
+    "KDA head_dim and convolution width",
+    "Q/KV LoRA ranks and MLA dimensions",
+    "LatentMoE hidden and intermediate sizes",
+    "top-k routing",
+    "SiTU activation",
+    "MXFP4/NVFP4 group format when present",
+    "vision tower"
+  ],
+  "warnings": [
+    "Static estimate only; validate allocator peak and selected kernels.",
+    "Single-device execution does not reproduce distributed collectives.",
+    "Local expert count differs from the reference EP plan."
+  ],
+  "changes": {
+    "text_config.linear_attn_config.num_heads": {
+      "before": 96,
+      "after": 12
+    },
+    "text_config.num_attention_heads": {
+      "before": 96,
+      "after": 12
+    },
+    "text_config.num_experts": {
+      "before": 896,
+      "after": 32
+    },
+    "text_config.num_hidden_layers": {
+      "before": 93,
+      "after": 13
+    },
+    "text_config.num_key_value_heads": {
+      "before": 96,
+      "after": 12
+    }
+  },
+  "topology_changes": {
+    "text_config.linear_attn_config.full_attn_layers": {
+      "before": {
+        "length": 24,
+        "prefix": [
+          4,
+          8,
+          12,
+          16,
+          20,
+          24,
+          28,
+          32
+        ],
+        "suffix": [
+          84,
+          88,
+          92,
+          93
+        ]
+      },
+      "after": {
+        "length": 4,
+        "counts": {
+          "4": 1,
+          "8": 1,
+          "12": 1,
+          "13": 1
+        },
+        "sequence": [
+          4,
+          8,
+          12,
+          13
+        ]
+      }
+    },
+    "text_config.linear_attn_config.kda_layers": {
+      "before": {
+        "length": 69,
+        "prefix": [
+          1,
+          2,
+          3,
+          5,
+          6,
+          7,
+          9,
+          10
+        ],
+        "suffix": [
+          87,
+          89,
+          90,
+          91
+        ]
+      },
+      "after": {
+        "length": 9,
+        "sequence": [
+          1,
+          2,
+          3,
+          5,
+          6,
+          7,
+          9,
+          10,
+          11
+        ]
+      }
+    }
+  }
+}

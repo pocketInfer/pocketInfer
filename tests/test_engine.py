@@ -111,3 +111,15 @@ def test_cache_budget_is_enforced_for_max_model_len() -> None:
     )
     with pytest.raises(ScaleError, match="weight/cache budgets"):
         scale_config(glm52_config(), cache_starved)
+
+
+def test_unique_topology_lists_use_prefix_and_suffix_summaries() -> None:
+    result = scale_config(kimi_k3_config(), budget())
+    full_layers = result.manifest["topology_changes"][
+        "text_config.linear_attn_config.full_attn_layers"
+    ]["before"]
+
+    assert full_layers["length"] == 24
+    assert full_layers["prefix"] == [4, 8, 12, 16, 20, 24, 28, 32]
+    assert full_layers["suffix"] == [84, 88, 92, 93]
+    assert "counts" not in full_layers

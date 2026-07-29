@@ -52,5 +52,11 @@ def _format_dimensions(dimensions: dict[str, int]) -> str:
 
 
 def _format_sequence(summary: dict[str, Any]) -> str:
-    counts = ", ".join(f"{value}×{count}" for value, count in summary["counts"].items())
-    return f"{summary['length']} entries ({counts})"
+    sequence = summary.get("sequence")
+    counts = summary.get("counts")
+    if sequence is not None and (not counts or len(counts) == len(sequence)):
+        return f"{summary['length']} entries {sequence}"
+    if counts:
+        formatted = ", ".join(f"{value}×{count}" for value, count in counts.items())
+        return f"{summary['length']} entries ({formatted})"
+    return f"{summary['length']} entries ({summary['prefix']} … {summary['suffix']})"

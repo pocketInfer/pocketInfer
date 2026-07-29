@@ -70,10 +70,12 @@ def compact_diff(
 
 
 def _sequence_summary(values: list[Any]) -> dict[str, Any]:
+    counts = Counter(str(value) for value in values)
     summary: dict[str, Any] = {
         "length": len(values),
-        "counts": dict(Counter(str(value) for value in values)),
     }
+    if len(counts) <= 8:
+        summary["counts"] = dict(counts)
     if len(values) <= 16:
         summary["sequence"] = values
     else:
