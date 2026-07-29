@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import Counter
 from typing import Any
 
 
@@ -47,3 +48,35 @@ def nested_diff(
     if source != generated:
         return {prefix: {"before": source, "after": generated}}
     return {}
+
+
+def compact_diff(
+    source: Any,
+    generated: Any,
+) -> tuple[dict[str, dict[str, Any]], dict[str, dict[str, Any]]]:
+    changes: dict[str, dict[str, Any]] = {}
+    topology_changes: dict[str, dict[str, Any]] = {}
+    for path, change in nested_diff(source, generated).items():
+        before = change["before"]
+        after = change["after"]
+        if isinstance(before, list) and isinstance(after, list):
+            topology_changes[path] = {
+                "before": _sequence_summary(before),
+                "after": _sequence_summary(after),
+            }
+        else:
+            changes[path] = change
+    return changes, topology_changes
+
+
+def _sequence_summary(values: list[Any]) -> dict[str, Any]:
+    summary: dict[str, Any] = {
+        "length": len(values),
+        "counts": dict(Counter(str(value) for value in values)),
+    }
+    if len(values) <= 16:
+        summary["sequence"] = values
+    else:
+        summary["prefix"] = values[:8]
+        summary["suffix"] = values[-4:]
+    return summary

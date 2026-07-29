@@ -4,7 +4,7 @@ from typing import Any
 
 from pocketinfer.adapters import DEFAULT_ADAPTERS
 from pocketinfer.adapters.base import ModelAdapter
-from pocketinfer.adapters.common import nested_diff
+from pocketinfer.adapters.common import compact_diff
 from pocketinfer.models import Estimate, FidelityPolicy, ResourceBudget, ScaleResult
 from pocketinfer.sizes import format_gib
 
@@ -55,8 +55,9 @@ def scale_config(
     )
     estimate = selected.estimate
     minimum_cache_bytes = estimate.minimum_cache_bytes(budget.max_model_len)
+    changes, topology_changes = compact_diff(config, selected.config)
     manifest = {
-        "schema_version": 1,
+        "schema_version": 2,
         "adapter": adapter.name,
         "profile": policy.profile,
         "budget": {
@@ -88,7 +89,8 @@ def scale_config(
         },
         "preserved": selected.preserved,
         "warnings": selected.warnings,
-        "changes": nested_diff(config, selected.config),
+        "changes": changes,
+        "topology_changes": topology_changes,
     }
     return ScaleResult(
         adapter=adapter.name,

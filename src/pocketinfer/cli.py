@@ -7,6 +7,7 @@ from pathlib import Path
 
 from pocketinfer.engine import ScaleError, scale_config
 from pocketinfer.models import FidelityPolicy, ResourceBudget
+from pocketinfer.report import render_fidelity_report
 from pocketinfer.sizes import parse_size
 
 
@@ -37,6 +38,10 @@ def _write_json(path: Path, value: object) -> None:
     )
 
 
+def _write_text(path: Path, value: str) -> None:
+    path.write_text(value, encoding="utf-8")
+
+
 def run_scale(args: argparse.Namespace) -> int:
     source = json.loads(args.config.read_text(encoding="utf-8"))
     budget = ResourceBudget(
@@ -54,18 +59,22 @@ def run_scale(args: argparse.Namespace) -> int:
     output_dir: Path = args.output_dir
     config_path = output_dir / "config.json"
     manifest_path = output_dir / "pocketinfer-manifest.json"
-    if not args.force and (config_path.exists() or manifest_path.exists()):
+    report_path = output_dir / "fidelity-report.md"
+    generated_paths = (config_path, manifest_path, report_path)
+    if not args.force and any(path.exists() for path in generated_paths):
         raise ScaleError(
             f"{output_dir} already contains generated files; pass --force to replace"
         )
     output_dir.mkdir(parents=True, exist_ok=True)
     _write_json(config_path, result.config)
     _write_json(manifest_path, result.manifest)
+    _write_text(report_path, render_fidelity_report(result.manifest))
     selected = result.manifest["selected_dimensions"]
     weight_gib = result.manifest["estimate"]["weight_gib"]
     print(f"{result.adapter}: {selected}; estimated weights={weight_gib:.2f} GiB")
     print(f"wrote {config_path}")
     print(f"wrote {manifest_path}")
+    print(f"wrote {report_path}")
     return 0
 
 

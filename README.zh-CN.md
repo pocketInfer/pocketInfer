@@ -17,7 +17,8 @@ PocketInfer 接收官方 config 和显存预算，在预算内寻找最有调试
 能保留的 KDA/DSA、MoE routing、cache 拓扑和关键 kernel shape 尽量保留；
 不得不失真的地方，全部写进 manifest，不悄悄掩盖。
 
-**状态：** alpha。已支持 Kimi K3 和 GLM-5.2；尚未完成 GPU runtime 验证。
+**状态：** alpha。已支持 Kimi K3 和 GLM-5.2。GLM-5.2 已在单张 32 GB GPU、
+vLLM 0.26.0 上完成 dummy-load 启动验证；尚未验证真实权重和输出正确性。
 
 ## 快速开始
 
@@ -36,7 +37,8 @@ pocketinfer scale ./Kimi-K3/config.json \
 输出：
 
 - `config.json`：生成的 Hugging Face 配置。
-- `pocketinfer-manifest.json`：尺寸、显存估算、字段变化、保留项和警告。
+- `fidelity-report.md`：简短的人类可读缩放报告。
+- `pocketinfer-manifest.json`：机器可读的审计数据。
 
 32 GiB 示例，KV cache 和 runtime 各预留 6 GiB：
 
@@ -63,6 +65,30 @@ vllm serve ./out/kimi-k3 \
 
 生成配置仍走原生 K3/GLM model path。实际 backend 和 kernel 取决于 vLLM
 版本、设备、dtype 和运行参数。
+
+GLM-5.2 单张 32 GB GPU 实测：
+
+```bash
+vllm serve models/GLM-5.2-dummy/ \
+  --load-format=dummy \
+  --trust-remote-code \
+  --enforce-eager \
+  --max-model-len 4096
+```
+
+```text
+Resolved architecture: GlmMoeDsaForCausalLM
+Using max model len 4096
+Using FLASH_ATTN_MLA_SPARSE attention backend
+Using TritonExperts MoE backend
+Model loading took 15.36 GiB memory
+Available KV cache memory: 12.29 GiB
+GPU KV cache size: 990,144 tokens
+Starting vLLM server on http://0.0.0.0:8000
+NVIDIA H800 NVL: 31435 MiB / 32000 MiB
+```
+
+这证明模型构造、DSA/MLA 与 MoE backend 选择、服务启动可行，不代表真实权重推理质量。
 
 ## 开发
 

@@ -1,0 +1,161 @@
+{
+  "schema_version": 2,
+  "adapter": "glm-5.2",
+  "profile": "kernel",
+  "budget": {
+    "total_memory_bytes": 30064771072,
+    "kv_cache_bytes": 4294967296,
+    "runtime_reserve_bytes": 5368709120,
+    "weight_budget_bytes": 20401094656,
+    "world_size": 1,
+    "max_model_len": 4096
+  },
+  "reference_parallelism": {
+    "tensor_parallel": 8,
+    "expert_parallel": 16
+  },
+  "selected_dimensions": {
+    "layers": 11,
+    "attention_heads": 8,
+    "experts": 16,
+    "top_k": 8
+  },
+  "estimate": {
+    "parameter_count": 8832123792,
+    "weight_bytes": 17664247584,
+    "weight_gib": 16.451,
+    "kv_bytes_per_token": 13332,
+    "fixed_cache_bytes": 0,
+    "minimum_cache_bytes": 54607872,
+    "minimum_cache_gib": 0.051,
+    "notes": [
+      "BF16/FP8 storage is inferred from config dtype only",
+      "minimum cache estimate covers one max-length request",
+      "MTP is conservatively estimated as one sparse layer",
+      "runtime workspaces and distributed replication are excluded"
+    ]
+  },
+  "preserved": [
+    "hidden size and MLA ranks",
+    "DSA index head dimensions and top-k",
+    "IndexShare frequency and phase",
+    "three dense warm-up layers",
+    "MoE intermediate size and top-k routing",
+    "MTP layer",
+    "rope configuration"
+  ],
+  "warnings": [
+    "Static estimate only; DSA cache and backend must be validated in vLLM.",
+    "Single-device execution does not reproduce distributed collectives."
+  ],
+  "changes": {
+    "n_routed_experts": {
+      "before": 256,
+      "after": 16
+    },
+    "num_attention_heads": {
+      "before": 64,
+      "after": 8
+    },
+    "num_hidden_layers": {
+      "before": 78,
+      "after": 11
+    },
+    "num_key_value_heads": {
+      "before": 64,
+      "after": 8
+    }
+  },
+  "topology_changes": {
+    "indexer_types": {
+      "before": {
+        "length": 78,
+        "counts": {
+          "full": 21,
+          "shared": 57
+        },
+        "prefix": [
+          "full",
+          "full",
+          "full",
+          "shared",
+          "shared",
+          "shared",
+          "full",
+          "shared"
+        ],
+        "suffix": [
+          "full",
+          "shared",
+          "shared",
+          "shared"
+        ]
+      },
+      "after": {
+        "length": 11,
+        "counts": {
+          "full": 5,
+          "shared": 6
+        },
+        "sequence": [
+          "full",
+          "full",
+          "full",
+          "shared",
+          "shared",
+          "shared",
+          "full",
+          "shared",
+          "shared",
+          "shared",
+          "full"
+        ]
+      }
+    },
+    "mlp_layer_types": {
+      "before": {
+        "length": 78,
+        "counts": {
+          "dense": 3,
+          "sparse": 75
+        },
+        "prefix": [
+          "dense",
+          "dense",
+          "dense",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse"
+        ],
+        "suffix": [
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse"
+        ]
+      },
+      "after": {
+        "length": 11,
+        "counts": {
+          "dense": 3,
+          "sparse": 8
+        },
+        "sequence": [
+          "dense",
+          "dense",
+          "dense",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse",
+          "sparse"
+        ]
+      }
+    }
+  }
+}

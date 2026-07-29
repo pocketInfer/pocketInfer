@@ -33,8 +33,11 @@ def test_cli_writes_config_and_manifest(tmp_path, capsys) -> None:
     manifest = json.loads(
         (output / "pocketinfer-manifest.json").read_text(encoding="utf-8")
     )
+    report = (output / "fidelity-report.md").read_text(encoding="utf-8")
     assert generated["text_config"]["num_hidden_layers"] == 13
     assert manifest["adapter"] == "kimi-k3"
+    assert "# PocketInfer fidelity report" in report
+    assert "## Preserved" in report
     assert "wrote" in capsys.readouterr().out
 
 

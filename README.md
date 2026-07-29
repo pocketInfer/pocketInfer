@@ -22,8 +22,9 @@ most useful scaled-down version that fits—keeping KDA/DSA, MoE routing, cache
 topology, and important kernel shapes where the selected profile allows. Every
 compromise is written to a manifest instead of being hidden.
 
-**Status:** alpha. Kimi K3 and GLM-5.2 are supported; GPU runtime is not yet
-validated.
+**Status:** alpha. Kimi K3 and GLM-5.2 are supported. GLM-5.2 dummy-load
+startup is validated on a single 32 GB GPU with vLLM 0.26.0; real weights
+and output correctness are not validated.
 
 ## Quick start
 
@@ -42,8 +43,8 @@ pocketinfer scale ./Kimi-K3/config.json \
 The command writes:
 
 - `config.json`: generated Hugging Face config.
-- `pocketinfer-manifest.json`: dimensions, memory estimate, changed fields,
-  preserved invariants, and warnings.
+- `fidelity-report.md`: short human-readable scaling report.
+- `pocketinfer-manifest.json`: machine-readable audit data.
 
 Representative 32 GiB result, with 6 GiB each reserved for KV cache and runtime:
 
@@ -71,6 +72,31 @@ vllm serve ./out/kimi-k3 \
 The generated config takes the native K3/GLM model path. Actual backend and
 kernel selection still depends on the vLLM version, device, dtype, and runtime
 flags.
+
+GLM-5.2 also starts on a single 32 GB GPU:
+
+```bash
+vllm serve models/GLM-5.2-dummy/ \
+  --load-format=dummy \
+  --trust-remote-code \
+  --enforce-eager \
+  --max-model-len 4096
+```
+
+```text
+Resolved architecture: GlmMoeDsaForCausalLM
+Using max model len 4096
+Using FLASH_ATTN_MLA_SPARSE attention backend
+Using TritonExperts MoE backend
+Model loading took 15.36 GiB memory
+Available KV cache memory: 12.29 GiB
+GPU KV cache size: 990,144 tokens
+Starting vLLM server on http://0.0.0.0:8000
+NVIDIA H800 NVL: 31435 MiB / 32000 MiB
+```
+
+This validates model construction, DSA/MLA and MoE backend selection, and
+server startup—not real-weight inference quality.
 
 ## Development
 

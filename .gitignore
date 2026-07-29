@@ -6,4 +6,8 @@ __pycache__/
 dist/
 build/
 out/
-
+models/*/*
+!models/*/config.json
+!models/*/config.json.ori
+!models/*/pocketinfer-manifest.json
+!models/*/fidelity-report.md

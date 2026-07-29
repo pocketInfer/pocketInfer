@@ -66,6 +66,14 @@ def test_glm_balanced_keeps_indexshare_and_mlp_lists_synchronized() -> None:
     assert config["num_nextn_predict_layers"] == 1
     assert config["n_routed_experts"] >= 2 * config["num_experts_per_tok"]
     assert result.manifest["estimate"]["weight_bytes"] <= budget().weight_budget_bytes
+    assert result.manifest["schema_version"] == 2
+    assert result.manifest["changes"]["num_hidden_layers"] == {
+        "before": 78,
+        "after": 11,
+    }
+    indexer_change = result.manifest["topology_changes"]["indexer_types"]
+    assert indexer_change["before"]["length"] == 78
+    assert indexer_change["after"]["sequence"] == config["indexer_types"]
 
 
 def test_kernel_profile_preserves_reference_local_shapes_when_they_fit() -> None:
