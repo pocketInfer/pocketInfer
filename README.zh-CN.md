@@ -9,10 +9,10 @@ PocketInfer 帮你把 **2.8T 参数模型**，缩到 **单卡 32 GB** 里做推�
 
 手工删层、减 attention heads 或 experts 也不可靠：模型可能悄悄绕开目标 cache、MoE 或 kernel path。服务虽然启动了，测到的却不再是你想验证的架构。
 
-PocketInfer 读取官方 Hugging Face 配置和显存预算，生成一个更小、但仍满足关键架构约束的测试模型。它继续走 vLLM 原生模型实现，可用于模型接入、scheduler、prefix cache、MoE routing、量化和 kernel 开发。
+PocketInfer 读取官方 Hugging Face 配置和显存预算，生成一个**口袋模型**：规模更小，但仍满足关键架构约束。它继续走 vLLM 原生模型实现，可用于模型接入、scheduler、prefix cache、MoE routing、量化和 kernel 开发。
 
 > [!IMPORTANT]
-> PocketInfer 缩小的是测试模型，不是把完整的 2.8T 参数原封不动塞进 32 GB。它不是量化、蒸馏或模型压缩，也不会生成可用于效果评测的权重。
+> 口袋模型是保留关键架构约束的迷你模型，不是把完整的 2.8T 参数原封不动塞进 32 GB。PocketInfer 不是量化、蒸馏或模型压缩，也不会生成可用于效果评测的权重。
 
 ## 已跑通：单卡 32 GB GLM-5.2
 
@@ -38,7 +38,7 @@ Starting vLLM server on http://0.0.0.0:8000
 
 这说明 vLLM 已完成模型构造、DSA/MLA 与 MoE 后端选择、KV Cache 分配和 API 服务启动。它不代表真实权重的正确性，也不能用于推导生产性能。
 
-## 两个开箱即用的范例
+## 两个开箱即用的口袋模型
 
 | 范例 | 参数规模（原始 → 生成） | 生成权重估算 | 验证状态 |
 | --- | --- | --- | --- |
@@ -70,7 +70,7 @@ PocketInfer 将显存拆成权重、KV Cache 和运行时预留三部分：
 
 编译器会在权重预算内寻找保真度最高的候选配置。这里的显存数字是静态规划值，不是 GPU 峰值实测。
 
-## 生成自己的测试模型
+## 生成你的口袋模型
 
 PocketInfer 的输入只有原始 `config.json`，不需要权重，也不需要 tokenizer。以下命令都从仓库根目录执行。
 
@@ -81,7 +81,9 @@ uvx hf download zai-org/GLM-5.2 config.json \
   --local-dir ./models/GLM-5.2-source
 ```
 
-### 2. 生成测试模型
+### 2. 生成口袋模型
+
+这个例子给总显存 28 GiB，其中 KV Cache 预留 4 GiB，运行时预留 5 GiB；剩余空间用于权重。
 
 ```bash
 uv sync --extra dev
@@ -95,13 +97,36 @@ uv run pocketinfer scale ./models/GLM-5.2-source/config.json \
   --profile kernel
 ```
 
-输出目录包含：
+<details>
+<summary><strong>CLI 参数说明</strong></summary>
+
+| 参数 | 作用 | 默认值 |
+| --- | --- | --- |
+| `config` | 原始 Hugging Face `config.json` 路径 | 必填 |
+| `--output-dir` | 口袋模型的输出目录 | 必填 |
+| `--memory-budget` | 总显存预算 | 必填 |
+| `--kv-cache-budget` | 从总预算中为 KV Cache 预留的空间 | `4GiB` |
+| `--runtime-reserve` | 为激活、workspace 等运行时开销预留的空间 | `4GiB` |
+| `--max-model-len` | 用于 KV Cache 规划的最大序列长度；不改写模型的上下文声明 | `4096` |
+| `--profile` | `balanced` 优先架构覆盖；`kernel` 优先局部 head/expert 形状 | `balanced` |
+| `--reference-tp` | 参考部署的 TP 规模，用于推导每卡 head 形状 | `8` |
+| `--reference-ep` | 参考部署的 EP 规模，用于推导每卡 expert 形状 | `16` |
+| `--force` | 覆盖输出目录中已有的生成文件 | 关闭 |
+
+预算参数只用于 PocketInfer 的静态规划，不会自动改写 vLLM 的运行参数。
+
+</details>
+
+<details>
+<summary><strong>生成文件</strong></summary>
 
 - `config.json`：供原生模型实现加载的缩放配置
 - `fidelity-report.md`：保留项、缩放项和风险提示
 - `pocketinfer-manifest.json`：预算与生成过程的机器可读记录
 
-替换源配置、输出目录、预算和 profile，即可生成其他测试模型。`--max-model-len` 只参与运行规划，不会改写源模型声明的最大上下文长度。
+</details>
+
+替换源配置、输出目录、预算和 profile，即可生成其他口袋模型。
 
 ### 3. 用 vLLM 启动
 
@@ -112,26 +137,6 @@ vllm serve ./models/GLM-5.2-local \
   --max-model-len 4096 \
   --enforce-eager
 ```
-
-<details>
-<summary><strong>生成 Kimi K3 测试模型</strong></summary>
-
-```bash
-uvx hf download moonshotai/Kimi-K3 config.json \
-  --local-dir ./models/Kimi-K3-source
-
-uv run pocketinfer scale ./models/Kimi-K3-source/config.json \
-  --output-dir ./models/Kimi-K3-local \
-  --memory-budget 28GiB \
-  --kv-cache-budget 4GiB \
-  --runtime-reserve 5GiB \
-  --max-model-len 4096 \
-  --profile balanced
-```
-
-Kimi K3 已通过配置生成与一致性测试，GPU 运行验证尚未完成。
-
-</details>
 
 ## 验证边界
 
