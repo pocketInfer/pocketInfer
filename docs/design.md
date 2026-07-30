@@ -10,7 +10,7 @@ config + resource budget + profile
               |
       filter, score, explain
               |
-       config + manifest
+ config + report + manifest
 ```
 
 The core handles budget filtering and deterministic ranking. Each adapter owns
@@ -23,5 +23,8 @@ MVP choices:
 - Preserve native Hugging Face configs; no vLLM-side mini-model branch.
 - Keep vLLM optional; static compilation must work without an engine install.
 - Treat GPU dispatch and profiling as runtime evidence, not compiler claims.
+
+The report is the short human review surface. The manifest is the complete,
+machine-readable audit record.
 
 See [ADR 0001](adr/0001-adapters-and-constraints.md) for the decision record.

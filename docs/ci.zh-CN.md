@@ -17,6 +17,8 @@ GitHub Actions 在 Python 3.11 和 3.12 上运行同一命令。
 | vLLM config/model 构造 | 未运行 |
 | GPU kernel 执行和 profiling | 未运行 |
 
+此表只描述自动化 CI。根 README 的 GLM-5.2 结果属于独立的人工 runtime 证据。
+
 结论必须精确：
 
 - `compiler-tested`：本 CI 通过。
