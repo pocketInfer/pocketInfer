@@ -70,79 +70,66 @@ PocketInfer 将显存拆成权重、KV Cache 和运行时预留三部分：
 
 编译器会在权重预算内寻找保真度最高的候选配置。这里的显存数字是静态规划值，不是 GPU 峰值实测。
 
-### 记录每一次缩放
+## 生成自己的测试模型
 
-每个生成目录都包含：
+PocketInfer 的输入只有原始 `config.json`，不需要权重，也不需要 tokenizer。以下命令都从仓库根目录执行。
+
+### 1. 下载原始配置
+
+```bash
+uvx hf download zai-org/GLM-5.2 config.json \
+  --local-dir ./models/GLM-5.2-source
+```
+
+### 2. 生成测试模型
+
+```bash
+uv sync --extra dev
+
+uv run pocketinfer scale ./models/GLM-5.2-source/config.json \
+  --output-dir ./models/GLM-5.2-local \
+  --memory-budget 28GiB \
+  --kv-cache-budget 4GiB \
+  --runtime-reserve 5GiB \
+  --max-model-len 4096 \
+  --profile kernel
+```
+
+输出目录包含：
 
 - `config.json`：供原生模型实现加载的缩放配置
 - `fidelity-report.md`：保留项、缩放项和风险提示
 - `pocketinfer-manifest.json`：预算与生成过程的机器可读记录
 
-## 生成自己的测试模型
-
-下面的命令会重新生成仓库中的 GLM-5.2 范例：
-
-```bash
-uv sync --extra dev
-
-uv run pocketinfer scale ./models/GLM-5.2-dummy/config.json.ori \
-  --output-dir ./models/GLM-5.2-dummy \
-  --memory-budget 28GiB \
-  --kv-cache-budget 4GiB \
-  --runtime-reserve 5GiB \
-  --max-model-len 4096 \
-  --profile kernel \
-  --force
-```
-
 替换源配置、输出目录、预算和 profile，即可生成其他测试模型。`--max-model-len` 只参与运行规划，不会改写源模型声明的最大上下文长度。
 
-<details>
-<summary><strong>重新生成 Kimi K3 范例</strong></summary>
+### 3. 用 vLLM 启动
 
 ```bash
-uv run pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
-  --output-dir ./models/Kimi-K3-dummy \
-  --memory-budget 28GiB \
-  --kv-cache-budget 4GiB \
-  --runtime-reserve 5GiB \
-  --max-model-len 4096 \
-  --profile balanced \
-  --force
-```
-
-</details>
-
-<details>
-<summary><strong>尝试启动 Kimi K3</strong></summary>
-
-```bash
-vllm serve ./models/Kimi-K3-dummy \
+vllm serve ./models/GLM-5.2-local \
   --load-format dummy \
   --skip-tokenizer-init \
   --max-model-len 4096 \
   --enforce-eager
 ```
 
-这条命令尚未完成 GPU 运行验证，因此不作为已跑通结果展示。
-
-</details>
-
 <details>
-<summary><strong>启用 tokenizer 和文本 API</strong></summary>
-
-`--skip-tokenizer-init` 只适合引擎启动测试。要通过 OpenAI API 发送文本，需要把 tokenizer 元数据下载到模型目录，并在启动时去掉该参数。
+<summary><strong>生成 Kimi K3 测试模型</strong></summary>
 
 ```bash
-uvx hf download zai-org/GLM-5.2 \
-  tokenizer.json tokenizer_config.json chat_template.jinja \
-  --local-dir ./models/GLM-5.2-dummy
+uvx hf download moonshotai/Kimi-K3 config.json \
+  --local-dir ./models/Kimi-K3-source
 
-uvx hf download moonshotai/Kimi-K3 \
-  --include "*.py" --include "*.json" --include "*.model" \
-  --exclude "config.json" --exclude "*.safetensors*" --exclude "assets/*" \
-  --local-dir ./models/Kimi-K3-dummy
+uv run pocketinfer scale ./models/Kimi-K3-source/config.json \
+  --output-dir ./models/Kimi-K3-local \
+  --memory-budget 28GiB \
+  --kv-cache-budget 4GiB \
+  --runtime-reserve 5GiB \
+  --max-model-len 4096 \
+  --profile balanced
 ```
+
+Kimi K3 已通过配置生成与一致性测试，GPU 运行验证尚未完成。
 
 </details>
 
