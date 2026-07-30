@@ -33,10 +33,13 @@ tiers or memory limits:
 
 | Path | Profile | Layers / heads / experts | Format | Estimated weights | Status |
 | --- | --- | --- | --- | --- | --- |
-| `models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU startup validated |
-| `models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | GPU validation pending |
+| `./models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU startup validated |
+| `./models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | GPU validation pending |
 
-Start either engine directly without weights or tokenizer files:
+## Run an example
+
+Run all commands from the repository root. For engine-only testing, no weights
+or tokenizer files are needed:
 
 ```bash
 vllm serve ./models/GLM-5.2-dummy \
@@ -48,39 +51,48 @@ vllm serve ./models/Kimi-K3-dummy \
   --max-model-len 4096 --enforce-eager
 ```
 
-`--skip-tokenizer-init` is for engine testing. To send text through the OpenAI
-API, download the upstream tokenizer metadata as shown in
-[`models/README.md`](models/README.md), then omit that flag.
+To send text through the OpenAI API, download tokenizer metadata into the same
+directory, then omit `--skip-tokenizer-init`:
 
-## Generate your own
+```bash
+uvx hf download zai-org/GLM-5.2 \
+  tokenizer.json tokenizer_config.json chat_template.jinja \
+  --local-dir ./models/GLM-5.2-dummy
+
+uvx hf download moonshotai/Kimi-K3 \
+  --include "*.py" --include "*.json" --include "*.model" \
+  --exclude "config.json" --exclude "*.safetensors*" --exclude "assets/*" \
+  --local-dir ./models/Kimi-K3-dummy
+```
+
+## Rebuild or customize
+
+These are the exact commands used for the checked-in examples:
 
 ```bash
 uv sync --extra dev
 
-pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
-  --output-dir ./out/kimi-k3 \
-  --memory-budget 32GiB \
-  --kv-cache-budget 6GiB \
-  --runtime-reserve 6GiB \
+uv run pocketinfer scale ./models/GLM-5.2-dummy/config.json.ori \
+  --output-dir ./models/GLM-5.2-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
+  --max-model-len 4096 --profile kernel --force
+
+uv run pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
+  --output-dir ./models/Kimi-K3-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
   --max-model-len 4096 \
-  --profile balanced
+  --profile balanced --force
 ```
 
-The command writes:
-
-- `config.json`: generated Hugging Face config.
-- `fidelity-report.md`: short human-readable scaling report.
-- `pocketinfer-manifest.json`: machine-readable audit data.
-
-The checked-in examples use a 28 GiB total budget, with 4 GiB for KV cache and
-5 GiB for runtime. Change the budget and profile for your target. Weight and
-cache figures are static estimates, not measured peaks.
+Change the source config, output directory, budget, or profile for another
+target. Each run writes `config.json`, `fidelity-report.md`, and
+`pocketinfer-manifest.json`. Estimates are static, not measured peaks.
 
 ## Measured GLM-5.2 run
 
 ```bash
-vllm serve models/GLM-5.2-dummy/ \
-  --load-format=dummy \
+vllm serve ./models/GLM-5.2-dummy \
+  --load-format dummy \
   --trust-remote-code \
   --enforce-eager \
   --max-model-len 4096

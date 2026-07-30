@@ -26,10 +26,12 @@ vLLM 0.26.0 上完成 dummy-load 启动验证；尚未验证真实权重和输�
 
 | 路径 | Profile | 层数 / heads / experts | 格式 | 权重估算 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| `models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU 启动已验证 |
-| `models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | 待 GPU 验证 |
+| `./models/GLM-5.2-dummy` | kernel | 11 / 8 / 16 | BF16 | 16.45 GiB | GPU 启动已验证 |
+| `./models/Kimi-K3-dummy` | balanced | 13 / 12 / 32 | MXFP4 | 18.20 GiB | 待 GPU 验证 |
 
-不下载权重和 tokenizer，也可以直接启动 engine：
+## 运行范例
+
+所有命令都从仓库根目录执行。只测试 engine 时，不需要权重和 tokenizer：
 
 ```bash
 vllm serve ./models/GLM-5.2-dummy \
@@ -41,37 +43,48 @@ vllm serve ./models/Kimi-K3-dummy \
   --max-model-len 4096 --enforce-eager
 ```
 
-`--skip-tokenizer-init` 适合 engine 测试。要通过 OpenAI API 发送文本，按
-[`models/README.md`](models/README.md) 下载上游 tokenizer 元数据，再去掉该参数。
+要通过 OpenAI API 发送文本，把 tokenizer 元数据下载到同一目录，再去掉
+`--skip-tokenizer-init`：
 
-## 自己生成
+```bash
+uvx hf download zai-org/GLM-5.2 \
+  tokenizer.json tokenizer_config.json chat_template.jinja \
+  --local-dir ./models/GLM-5.2-dummy
+
+uvx hf download moonshotai/Kimi-K3 \
+  --include "*.py" --include "*.json" --include "*.model" \
+  --exclude "config.json" --exclude "*.safetensors*" --exclude "assets/*" \
+  --local-dir ./models/Kimi-K3-dummy
+```
+
+## 重新生成或自定义
+
+下面是仓库内两份范例的准确生成命令：
 
 ```bash
 uv sync --extra dev
 
-pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
-  --output-dir ./out/kimi-k3 \
-  --memory-budget 32GiB \
-  --kv-cache-budget 6GiB \
-  --runtime-reserve 6GiB \
+uv run pocketinfer scale ./models/GLM-5.2-dummy/config.json.ori \
+  --output-dir ./models/GLM-5.2-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
+  --max-model-len 4096 --profile kernel --force
+
+uv run pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
+  --output-dir ./models/Kimi-K3-dummy \
+  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
   --max-model-len 4096 \
-  --profile balanced
+  --profile balanced --force
 ```
 
-输出：
-
-- `config.json`：生成的 Hugging Face 配置。
-- `fidelity-report.md`：简短的人类可读缩放报告。
-- `pocketinfer-manifest.json`：机器可读的审计数据。
-
-这两份范例采用 28 GiB 总预算，其中 KV cache 4 GiB、runtime 5 GiB。
-可以按目标设备调整预算和 profile；权重与 cache 数字是静态估算，不是 GPU 峰值实测。
+换掉源 config、输出目录、预算或 profile，就可以生成其他目标。每次输出
+`config.json`、`fidelity-report.md` 和 `pocketinfer-manifest.json`。
+所有估算都是静态值，不是 GPU 峰值实测。
 
 ## GLM-5.2 单卡实测
 
 ```bash
-vllm serve models/GLM-5.2-dummy/ \
-  --load-format=dummy \
+vllm serve ./models/GLM-5.2-dummy \
+  --load-format dummy \
   --trust-remote-code \
   --enforce-eager \
   --max-model-len 4096
