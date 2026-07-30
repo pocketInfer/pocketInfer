@@ -21,6 +21,7 @@ PocketInfer 读取官方 Hugging Face 配置和显存预算，生成一个**口�
 ```bash
 vllm serve ./models/GLM-5.2-dummy \
   --load-format dummy \
+  --trust-remote-code \
   --skip-tokenizer-init \
   --max-model-len 4096 \
   --enforce-eager
@@ -28,15 +29,39 @@ vllm serve ./models/GLM-5.2-dummy \
 
 这个内置配置已在 vLLM 0.26.0、单卡 32 GB 环境中实际启动：
 
-```text
-Resolved architecture: GlmMoeDsaForCausalLM
-Model loading took 15.36 GiB memory
-Available KV cache memory: 12.29 GiB
-GPU KV cache size: 990,144 tokens
-Starting vLLM server on http://0.0.0.0:8000
-```
+| 实测项 | 结果 |
+| --- | --- |
+| 模型与服务 | `GlmMoeDsaForCausalLM` 完成构造，API 服务正常启动 |
+| 推理后端 | `FLASH_ATTN_MLA_SPARSE`、FlashAttention MLA prefill、Triton MoE |
+| 显存 | 模型 15.36 GiB，KV Cache 12.29 GiB；整卡占用 31,435 / 32,000 MiB |
+| 请求压测 | 1024 输入、100 输出、10 个请求：10 成功，0 失败 |
 
-这说明 vLLM 已完成模型构造、DSA/MLA 与 MoE 后端选择、KV Cache 分配和 API 服务启动。它不代表真实权重的正确性，也不能用于推导生产性能。
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/assets/runtime-evidence/glm52-single-32gb-memory.png"><img src="docs/assets/runtime-evidence/glm52-single-32gb-memory.png" alt="单卡 32 GB 显存占用" /></a>
+<br><sub>单卡显存：31,435 / 32,000 MiB。</sub>
+</td>
+<td width="50%" valign="top">
+<a href="docs/assets/runtime-evidence/glm52-vllm-bench-serve.png"><img src="docs/assets/runtime-evidence/glm52-vllm-bench-serve.png" alt="vLLM bench serve 压测结果" /></a>
+<br><sub>vLLM bench serve：10/10 请求成功，0 失败。点击查看原图。</sub>
+</td>
+</tr>
+</table>
+
+<details>
+<summary><strong>查看完整启动日志（两张截图）</strong></summary>
+
+![GLM-5.2 模型构造、后端选择与 KV Cache 分配](docs/assets/runtime-evidence/glm52-startup-model-init.png)
+
+![GLM-5.2 API 服务启动与请求执行](docs/assets/runtime-evidence/glm52-startup-api-requests.png)
+
+</details>
+
+这组证据说明 vLLM 不仅完成了模型构造和服务启动，还实际执行了多次 prefill/decode 请求。压测环境额外包含上游 tokenizer 元数据，仅用于构造请求；PocketInfer 本身仍只读取 `config.json`。
+
+> [!NOTE]
+> 这里使用 dummy 权重和 eager mode。吞吐与时延只描述这次工程验证，不能代表真实 GLM-5.2 的模型质量或生产性能。
 
 ## 两个开箱即用的口袋模型
 
@@ -133,6 +158,7 @@ uv run pocketinfer scale ./models/GLM-5.2-source/config.json \
 ```bash
 vllm serve ./models/GLM-5.2-local \
   --load-format dummy \
+  --trust-remote-code \
   --skip-tokenizer-init \
   --max-model-len 4096 \
   --enforce-eager

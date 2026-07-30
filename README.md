@@ -2,132 +2,178 @@
 
 [简体中文](README.zh-CN.md)
 
-> Exercise giant-model inference paths without giant-model hardware.
+**Kimi K3 development should not require waiting for a B300.**<br>
+PocketInfer helps you shrink a **2.8T-parameter model** to a **single 32 GB GPU** for inference development.
 
-PocketInfer compiles an official Hugging Face config and a memory budget into a
-smaller, native config that preserves selected architecture constraints. Run it
-with vLLM `--load-format dummy` to exercise model construction, cache topology,
-MoE routing, and kernel paths without downloading the checkpoint.
+Everyone knows that `--load-format dummy` skips the real checkpoint, but vLLM still constructs the full tensor shapes from the original config. For a roughly 2.8T-parameter Kimi K3, fake weights do not make the memory requirement disappear—the original model still does not fit on one GPU.
 
-This is not model compression or distillation. PocketInfer generates test
-shapes, not smaller trained weights.
+Manually removing layers, attention heads, or experts is unreliable. The model may silently bypass the cache, MoE, or kernel path you wanted to test. A server that starts is not necessarily exercising the target architecture.
 
-## Proven result
+PocketInfer reads an official Hugging Face config and a memory budget, then produces a **pocket model**: smaller, while still satisfying key architecture constraints. It continues to use the native vLLM model implementation for model integration, scheduler, prefix cache, MoE routing, quantization, and kernel development.
 
-A bundled GLM-5.2 example starts on one 32 GB GPU with vLLM 0.26.0:
+> [!IMPORTANT]
+> A pocket model is a mini model that preserves key architecture constraints. It does not place the full 2.8T parameters into 32 GB. PocketInfer is not quantization, distillation, or model compression, and it does not generate weights for quality evaluation.
 
-```text
-Resolved architecture: GlmMoeDsaForCausalLM
-Model loading took 15.36 GiB memory
-Available KV cache memory: 12.29 GiB
-GPU KV cache size: 990,144 tokens
-Starting vLLM server on http://0.0.0.0:8000
-```
+## Proven: GLM-5.2 on one 32 GB GPU
 
-This proves model construction, DSA/MLA and MoE backend selection, cache
-allocation, and server startup. It does not prove real-weight correctness or
-performance fidelity.
-
-## Try it
-
-Run from the repository root. The validated GLM engine-only command needs
-neither weights nor tokenizer files:
+Run from the repository root:
 
 ```bash
 vllm serve ./models/GLM-5.2-dummy \
-  --load-format dummy --skip-tokenizer-init \
-  --max-model-len 4096 --enforce-eager
+  --load-format dummy \
+  --trust-remote-code \
+  --skip-tokenizer-init \
+  --max-model-len 4096 \
+  --enforce-eager
 ```
 
-The repository also includes the candidate Kimi K3 smoke command:
+This bundled config was started with vLLM 0.26.0 on one 32 GB GPU:
 
-```bash
-vllm serve ./models/Kimi-K3-dummy \
-  --load-format dummy --skip-tokenizer-init \
-  --max-model-len 4096 --enforce-eager
-```
+| Evidence | Result |
+| --- | --- |
+| Model and server | `GlmMoeDsaForCausalLM` constructed; API server started |
+| Inference backends | `FLASH_ATTN_MLA_SPARSE`, FlashAttention MLA prefill, Triton MoE |
+| Memory | 15.36 GiB model, 12.29 GiB KV cache; 31,435 / 32,000 MiB total GPU usage |
+| Request benchmark | 1,024 input tokens, 100 output tokens, 10 requests: 10 succeeded, 0 failed |
 
-Kimi K3 is compiler-tested but not yet GPU-runtime-validated.
+<table>
+<tr>
+<td width="50%" valign="top">
+<a href="docs/assets/runtime-evidence/glm52-single-32gb-memory.png"><img src="docs/assets/runtime-evidence/glm52-single-32gb-memory.png" alt="Single 32 GB GPU memory usage" /></a>
+<br><sub>Single-GPU memory usage: 31,435 / 32,000 MiB.</sub>
+</td>
+<td width="50%" valign="top">
+<a href="docs/assets/runtime-evidence/glm52-vllm-bench-serve.png"><img src="docs/assets/runtime-evidence/glm52-vllm-bench-serve.png" alt="vLLM bench serve result" /></a>
+<br><sub>vLLM bench serve: 10/10 requests succeeded, 0 failed. Click for the full image.</sub>
+</td>
+</tr>
+</table>
 
-## Bundled examples
+<details>
+<summary><strong>Full startup log (two screenshots)</strong></summary>
 
-| Example | Profile | Source → generated shape | Format | Estimated weights | Evidence |
-| --- | --- | --- | --- | --- | --- |
-| `./models/GLM-5.2-dummy` | kernel | 78 → 11 layers, 64 → 8 heads, 256 → 16 experts | BF16 | 16.45 GiB | vLLM 0.26.0, single 32 GB GPU |
-| `./models/Kimi-K3-dummy` | balanced | 93 → 13 layers, 96 → 12 heads, 896 → 32 experts | MXFP4 | 18.20 GiB | compiler-tested |
+![GLM-5.2 model construction, backend selection, and KV cache allocation](docs/assets/runtime-evidence/glm52-startup-model-init.png)
 
-Each directory contains the source config, generated config, a short fidelity
-report, and a machine-readable manifest. They are examples, not hardware tiers
-or memory limits.
+![GLM-5.2 API server startup and request execution](docs/assets/runtime-evidence/glm52-startup-api-requests.png)
 
-## What stays faithful
+</details>
 
-Adapters encode model-specific constraints instead of scaling every integer:
+This evidence covers more than construction and server startup: repeated prefill/decode requests were executed. The benchmark environment also contained upstream tokenizer metadata solely to construct requests; PocketInfer itself still reads only `config.json`.
 
-- Kimi K3 retains KDA/MLA schedules, Q/KV latent ranks, LatentMoE dimensions,
-  top-16 routing, SiTU, MXFP4 metadata, and an AttnRes boundary.
-- GLM-5.2 retains DSA/IndexShare cadence, latent ranks, the dense-to-MoE
-  transition, top-k routing, MTP, and RoPE settings.
+> [!NOTE]
+> This run used dummy weights and eager mode. Throughput and latency describe this engineering check only; they are not real GLM-5.2 quality or production-performance results.
 
-The generated model does not reproduce checkpoint values, distributed
-collectives, exact kernel dispatch, quality, or production performance.
+## Two ready-to-run pocket models
 
-## Rebuild or customize
+| Example | Parameters (source → generated) | Estimated generated weights | Validation |
+| --- | --- | --- | --- |
+| [GLM-5.2](models/GLM-5.2-dummy) (`kernel`) | 753B → 8.83B | 16.45 GiB, BF16 | vLLM 0.26.0, started on one 32 GB GPU |
+| [Kimi K3](models/Kimi-K3-dummy) (`balanced`) | 2.78T → 19.1B | 18.20 GiB, MXFP4 | Config generation and consistency tests passed; GPU runtime pending |
 
-The planning envelope is:
+Parameter counts and weight sizes are static estimates from the configs. These examples demonstrate two scaling strategies; they are not fixed hardware tiers. You can change the memory budget, generated size, and strategy.
+
+---
+
+## How PocketInfer works
+
+### Preserve architecture constraints
+
+PocketInfer does not scale every number by the same ratio. Each model adapter maintains constraints specific to that architecture:
+
+- GLM-5.2 retains DSA/IndexShare cadence, latent dimensions, the dense-to-MoE transition, top-k, MTP, and RoPE settings.
+- Kimi K3 retains KDA/MLA schedules, Q/KV latent dimensions, LatentMoE, top-16, SiTU, MXFP4 metadata, and an AttnRes boundary.
+
+The `balanced` strategy favors broader architecture coverage. The `kernel` strategy favors local head/expert shapes closer to the source model.
+
+### Plan a memory budget
+
+PocketInfer divides memory among weights, KV cache, and runtime reserve:
 
 ```text
 weight budget = memory budget - KV cache budget - runtime reserve
 ```
 
-`balanced` favors architecture coverage. `kernel` favors reference-local
-head/expert shapes for kernel work.
+The compiler searches for the highest-fidelity candidate that fits the weight budget. These numbers are static planning estimates, not measured GPU peaks.
 
-These commands reproduce the checked-in examples:
+## Generate your pocket model
+
+PocketInfer needs only the source `config.json`—not the weights or tokenizer. Run all commands from the repository root.
+
+### 1. Download the source config
+
+```bash
+uvx hf download zai-org/GLM-5.2 config.json \
+  --local-dir ./models/GLM-5.2-source
+```
+
+### 2. Generate a pocket model
+
+This example assigns 28 GiB total memory, reserves 4 GiB for KV cache and 5 GiB for runtime, and uses the remainder for weights.
 
 ```bash
 uv sync --extra dev
 
-uv run pocketinfer scale ./models/GLM-5.2-dummy/config.json.ori \
-  --output-dir ./models/GLM-5.2-dummy \
-  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
-  --max-model-len 4096 --profile kernel --force
-
-uv run pocketinfer scale ./models/Kimi-K3-dummy/config.json.ori \
-  --output-dir ./models/Kimi-K3-dummy \
-  --memory-budget 28GiB --kv-cache-budget 4GiB --runtime-reserve 5GiB \
-  --max-model-len 4096 --profile balanced --force
+uv run pocketinfer scale ./models/GLM-5.2-source/config.json \
+  --output-dir ./models/GLM-5.2-local \
+  --memory-budget 28GiB \
+  --kv-cache-budget 4GiB \
+  --runtime-reserve 5GiB \
+  --max-model-len 4096 \
+  --profile kernel
 ```
 
-Change the source, output, budget, or profile for another target. Each run
-writes `config.json`, `fidelity-report.md`, and
-`pocketinfer-manifest.json`. Estimates are static, not measured peaks.
+<details>
+<summary><strong>CLI parameters</strong></summary>
 
-## Add text input
+| Argument | Purpose | Default |
+| --- | --- | --- |
+| `config` | Path to the source Hugging Face `config.json` | required |
+| `--output-dir` | Output directory for the pocket model | required |
+| `--memory-budget` | Total memory envelope | required |
+| `--kv-cache-budget` | Memory reserved from the envelope for KV cache | `4GiB` |
+| `--runtime-reserve` | Memory reserved for activations, workspaces, and other runtime costs | `4GiB` |
+| `--max-model-len` | Sequence length used for KV cache planning; does not rewrite the model context declaration | `4096` |
+| `--profile` | `balanced` favors architecture coverage; `kernel` favors local head/expert shapes | `balanced` |
+| `--reference-tp` | Reference TP size used to derive per-GPU head shapes | `8` |
+| `--reference-ep` | Reference EP size used to derive per-GPU expert shapes | `16` |
+| `--force` | Replace generated files already present in the output directory | off |
 
-`--skip-tokenizer-init` is for engine testing. To use text through the OpenAI
-API, download tokenizer metadata into the same directory and remove that flag:
+Budget arguments affect PocketInfer's static plan; they do not automatically change vLLM runtime arguments.
+
+</details>
+
+<details>
+<summary><strong>Generated files</strong></summary>
+
+- `config.json`: scaled config loaded by the native model implementation
+- `fidelity-report.md`: preserved fields, scaled fields, and risk notes
+- `pocketinfer-manifest.json`: machine-readable budget and generation record
+
+</details>
+
+Change the source config, output directory, budget, and profile to produce another pocket model.
+
+### 3. Start it with vLLM
 
 ```bash
-uvx hf download zai-org/GLM-5.2 \
-  tokenizer.json tokenizer_config.json chat_template.jinja \
-  --local-dir ./models/GLM-5.2-dummy
-
-uvx hf download moonshotai/Kimi-K3 \
-  --include "*.py" --include "*.json" --include "*.model" \
-  --exclude "config.json" --exclude "*.safetensors*" --exclude "assets/*" \
-  --local-dir ./models/Kimi-K3-dummy
+vllm serve ./models/GLM-5.2-local \
+  --load-format dummy \
+  --trust-remote-code \
+  --skip-tokenizer-init \
+  --max-model-len 4096 \
+  --enforce-eager
 ```
 
-## Development
+## Validation boundaries
+
+PocketInfer is useful for model integration, config constraints, runtime initialization, and reaching attention, MoE, quantization, and cache paths. It does not reproduce checkpoint values, distributed communication scale, exact kernel dispatch on every device, model quality, or production performance.
+
+Repository CI runs lint, unit tests, package builds, and an installed CLI smoke test on Python 3.11/3.12:
 
 ```bash
 ./scripts/ci.sh
 ```
 
-CPU CI covers lint, tests, package build, and installed CLI smoke on Python
-3.11/3.12. Runtime claims require separate vLLM and GPU evidence.
+CI evidence and GPU runtime evidence are reported separately so that “the config can be generated” is never presented as “the model ran on a GPU.”
 
-[Design](docs/design.md) · [Model support](docs/model-support.md) ·
-[CI scope](docs/ci.md) · [Contributing](CONTRIBUTING.md) ·
-[Release checklist](docs/release.md)
+[Design](docs/design.md) · [Model support](docs/model-support.md) · [CI scope](docs/ci.md) · [Contributing](CONTRIBUTING.md) · [Release checklist](docs/release.md)
