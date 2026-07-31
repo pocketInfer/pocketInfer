@@ -23,8 +23,7 @@ vllm serve ./models/GLM-5.2-dummy \
   --load-format dummy \
   --trust-remote-code \
   --skip-tokenizer-init \
-  --max-model-len 4096 \
-  --enforce-eager
+  --max-model-len 4096
 ```
 
 This bundled config was started with vLLM 0.26.0 on one 32 GB GPU:
@@ -33,8 +32,7 @@ This bundled config was started with vLLM 0.26.0 on one 32 GB GPU:
 | --- | --- |
 | Model and server | `GlmMoeDsaForCausalLM` constructed; API server started |
 | Inference backends | `FLASH_ATTN_MLA_SPARSE`, FlashAttention MLA prefill, Triton MoE |
-| Memory | 15.36 GiB model, 12.29 GiB KV cache; 31,435 / 32,000 MiB total GPU usage |
-| Request benchmark | 1,024 input tokens, 100 output tokens, 10 requests: 10 succeeded, 0 failed |
+| Memory usage | 15.36 GiB model, 12.29 GiB KV cache; 31,435 / 32,000 MiB total GPU usage |
 
 <table>
 <tr>
@@ -58,10 +56,17 @@ This bundled config was started with vLLM 0.26.0 on one 32 GB GPU:
 
 </details>
 
+<details>
+<summary><strong>View profiling (one screenshot)</strong></summary>
+
+![GLM-5.2 Perfetto profiling](docs/assets/runtime-evidence/glm52-profiling-perfetto.png)
+
+</details>
+
 This evidence covers more than construction and server startup: repeated prefill/decode requests were executed. The benchmark environment also contained upstream tokenizer metadata solely to construct requests; PocketInfer itself still reads only `config.json`.
 
 > [!NOTE]
-> This run used dummy weights and eager mode. Throughput and latency describe this engineering check only; they are not real GLM-5.2 quality or production-performance results.
+> This run used dummy weights. Throughput and latency describe this engineering check only; they are not real GLM-5.2 quality or production-performance results.
 
 ## Two ready-to-run pocket models
 
@@ -160,8 +165,7 @@ vllm serve ./models/GLM-5.2-local \
   --load-format dummy \
   --trust-remote-code \
   --skip-tokenizer-init \
-  --max-model-len 4096 \
-  --enforce-eager
+  --max-model-len 4096
 ```
 
 ## Validation boundaries

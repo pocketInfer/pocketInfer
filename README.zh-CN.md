@@ -23,8 +23,7 @@ vllm serve ./models/GLM-5.2-dummy \
   --load-format dummy \
   --trust-remote-code \
   --skip-tokenizer-init \
-  --max-model-len 4096 \
-  --enforce-eager
+  --max-model-len 4096
 ```
 
 这个内置配置已在 vLLM 0.26.0、单卡 32 GB 环境中实际启动：
@@ -33,8 +32,7 @@ vllm serve ./models/GLM-5.2-dummy \
 | --- | --- |
 | 模型与服务 | `GlmMoeDsaForCausalLM` 完成构造，API 服务正常启动 |
 | 推理后端 | `FLASH_ATTN_MLA_SPARSE`、FlashAttention MLA prefill、Triton MoE |
-| 显存 | 模型 15.36 GiB，KV Cache 12.29 GiB；整卡占用 31,435 / 32,000 MiB |
-| 请求压测 | 1024 输入、100 输出、10 个请求：10 成功，0 失败 |
+| 显存占用 | 模型 15.36 GiB，KV Cache 12.29 GiB；整卡占用 31,435 / 32,000 MiB |
 
 <table>
 <tr>
@@ -58,10 +56,17 @@ vllm serve ./models/GLM-5.2-dummy \
 
 </details>
 
+<details>
+<summary><strong>查看 Profiling（一张截图）</strong></summary>
+
+![GLM-5.2 Perfetto profiling](docs/assets/runtime-evidence/glm52-profiling-perfetto.png)
+
+</details>
+
 这组证据说明 vLLM 不仅完成了模型构造和服务启动，还实际执行了多次 prefill/decode 请求。压测环境额外包含上游 tokenizer 元数据，仅用于构造请求；PocketInfer 本身仍只读取 `config.json`。
 
 > [!NOTE]
-> 这里使用 dummy 权重和 eager mode。吞吐与时延只描述这次工程验证，不能代表真实 GLM-5.2 的模型质量或生产性能。
+> 这里使用 dummy 权重。吞吐与时延只描述这次工程验证，不能代表真实 GLM-5.2 的模型质量或生产性能。
 
 ## 两个开箱即用的口袋模型
 
@@ -160,8 +165,7 @@ vllm serve ./models/GLM-5.2-local \
   --load-format dummy \
   --trust-remote-code \
   --skip-tokenizer-init \
-  --max-model-len 4096 \
-  --enforce-eager
+  --max-model-len 4096
 ```
 
 ## 验证边界
